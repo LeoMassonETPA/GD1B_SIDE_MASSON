@@ -1,0 +1,819 @@
+
+
+<!doctype html> 
+<html lang="en"> 
+<head> 
+    <meta charset="UTF-8" />
+    <title>Where is Arnold ?</title>
+    <script src="//cdn.jsdelivr.net/npm/phaser@3.11.0/dist/phaser.js"></script>
+    <style type="text/css">
+        body {
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+
+
+<script type="text/javascript">
+    
+    
+    
+    
+    
+/* Ce jeu à été réalisé en 3 jours. J'aimerai avoir une excuse pour avoir autant porcrastiné mais je n'en ai pas, cependant j'ai pris enormement de plaisir à comprendre la logique de phaser et à assembler le décors. Un grand merci a Médéric CARDON pour son aide sur le moteur de jeu phaser ainsi qu'à tous ceux qui m'ont apporté leur aide sur les serveurs discord.
+
+// Pitch : Votre petit frère à moitié albinos, Arnold, a encore fait une de ces crises et s'est perdu dans la montagne. Grâce à votre compétence de glisse-murale, evitez les obstacles et allez chercher votre frère. Mais attention, car il n'a plus toute sa tête et il risque de vous faire mal s'il vous touche. Heureusement, vous êtes plus endurant et vous devriez pouvoir arriver à le maîtriser !
+
+// Contrôles :  Déplacement gauche/droite : flèche gauche / droite
+                Saut : flèche du haut
+                Remontée-murale : flèche (gauche/droite en face du mur) + flèche du haut
+                Jet Pack : (après obtention powerup): maintenir flèche du haut 
+
+Les pics vous tuent instantanément
+F5 si Game Over  
+L'ennemi possède 2PVs
+N'hésitez pas a utiliser les coordonées en commentaire de la ligne 476 pour faire apparaitre le personnage à différents endroits.
+
+Il est préférable de jouer avec la fenetre du navigateur en plein ecran, mais pas en plein ecran F11
+
+J'espère que vous apprécirez ce jeu ! */
+    
+    
+    
+    
+    
+    
+    
+    
+var config = {
+    type: Phaser.AUTO,
+    width: 1920,
+    height: 1080,
+    physics: {
+        default: 'arcade',
+        arcade: {
+            gravity: { y: 500},
+            debug: false,
+              
+        }
+    },
+    scene: {
+        preload: preload,
+        create: create,
+        update: update
+    }
+    
+
+};                                              // VARIABLES //
+var victoire;                                   
+var defaite;
+var player;
+var barreVie;
+var pDV = 3;
+var pDVennemi = 2;
+var imPDV1;
+var imPDV2;
+var imPDV3;
+var imPDM1;
+var imPDM2;
+var imPDM3;
+var invincible = false;
+var invincibleEnnemi = false;
+var compteur = 150;
+var compteurEnnemi = 150;
+var platforms;
+var walls;
+var cursors;
+var ennemi;
+var particule;
+var emmeteur;
+var emmeteur2;
+var emmeteur3;
+var emmeteur4;
+var carbu1;
+var carbu2;
+var carbu3;
+var carbu4;
+var carbu5;
+var hitneige = false;
+var pics;
+var neige;
+var hitglace = false;
+var glace;
+var carburant;
+var canJump = true;
+var gameOver = false;
+var powerUp;
+var game = new Phaser.Game(config);
+
+function preload ()                                                     // CHARGEMENT DES ASSETS //
+{   // Victoire & Defaite //
+    this.load.image('Victoire','assets/Victoire.png');
+    this.load.image('Defaite','assets/Defaite.png');
+    
+    // Particules neige//
+    this.load.image('neige','assets/particule.png');
+    
+    // Coins //
+    this.load.image('HautGauche','assets/Carrehautgauche.png');
+    this.load.image('HautDroit','assets/Carrehautdroit.png');
+    this.load.image('BasGauche','assets/Carrebasgauche.png');
+    this.load.image('BasDroit','assets/Carrebasdroit.png');
+   
+    // PDV //
+    this.load.image('Tetevie','assets/asset_vie.png');
+    this.load.image('Tetemort','assets/asset_mort.png');
+    
+    // Glace (Provoque un effet d'inertie si on tente de courir dans l'autre sens)//
+    this.load.image('glace','assets/TileSolGlace.png');
+    
+    
+    // Arrière Plan //
+    this.load.image('background', 'assets/background.png');
+    
+    // Plateformes //
+    this.load.image('ground', 'assets/DoubleHorizontal.png');
+    
+    // Powerups & Assets HUD
+    this.load.image('barreVie', 'assets/FondBarre.png');
+    this.load.image('carbu', 'assets/carburant.png');
+    this.load.image('powerup', 'assets/PowerUp.png');
+    
+    // Murs //
+    this.load.image('wall', 'assets/DoubleVertical.png');
+   
+    // Pics (element provocant la mort du joueur) //
+    this.load.image('pics', 'assets/PicsGlace.png');
+    this.load.image('picsB', 'assets/PicsGlaceBas.png');
+    this.load.image('picsHG', 'assets/PicsGlaceHoriG.png');
+    this.load.image('picsHD', 'assets/PicsGlaceHoriD.png');
+    
+    // Neige (ralentit le joueur) //
+    this.load.image('SolNeige', 'assets/Neige.png');
+    
+    // Spritesheet Personage et Arnold (ennemi) //
+    this.load.spritesheet('dude', 'assets/Spritesheet_Animation.png', { frameWidth: 78, frameHeight: 138 });
+    this.load.spritesheet('ennemi', 'assets/SpritesheetEnnemi.png', { frameWidth: 73, frameHeight: 138 });
+}
+
+function create ()
+{
+    // La caméra //
+    this.cameras.main.setBounds(0, 0, 6000, 5257);
+    this.physics.world.setBounds(0, 0, 6000, 5275);
+
+
+    //  Création du background, (A mettre en premier, l'ordre dans la fonction create est important)
+    this.add.image(0, 0, 'background').setOrigin(0);
+ 
+  //On fixe le decor en groupe statique //
+    platforms = this.physics.add.staticGroup();
+    pics = this.physics.add.staticGroup();
+    walls = this.physics.add.staticGroup();
+    glace = this.physics.add.staticGroup();
+    neige = this.physics.add.staticGroup();
+    
+                                                    // CREATION DES ASSETS //
+    
+    // Sols //
+    platforms.create(200, 2680, 'ground');
+    platforms.create(328, 2680, 'ground');
+    platforms.create(200, 3000, 'ground');
+    platforms.create(328, 3000, 'ground');
+    platforms.create(456, 3000, 'ground');
+    platforms.create(648, 3192, 'ground');
+    platforms.create(776, 3192, 'ground');
+    platforms.create(908, 2616, 'ground');
+    platforms.create(1036, 2616,'ground');
+    platforms.create(1164, 2616, 'ground');
+    platforms.create(520, 2360, 'ground');
+    platforms.create(648, 2360, 'ground');
+    platforms.create(776, 2360, 'ground');
+    platforms.create(904, 2360, 'ground');
+    platforms.create(1032, 2360, 'ground');
+    platforms.create(1160, 2360, 'ground');
+    platforms.create(1288, 2360, 'ground');
+    platforms.create(1416, 2360, 'ground');
+    platforms.create(1544, 2360, 'ground');
+    platforms.create(1672, 2360, 'ground');
+    platforms.create(1356, 2936, 'ground');
+    platforms.create(1612, 2936, 'ground');
+    platforms.create(1740, 2936, 'ground');
+    platforms.create(1932, 2744, 'ground');
+    platforms.create(2060, 2744, 'ground');
+    platforms.create(1864, 1400, 'ground');
+    platforms.create(1992, 1400, 'ground');
+    platforms.create(2120, 1400, 'ground');
+    platforms.create(2248, 1400, 'ground');
+    platforms.create(2376, 1400, 'ground');
+    platforms.create(2504, 1400, 'ground');
+    platforms.create(2252, 1656, 'ground');
+    platforms.create(2632, 1400, 'ground');
+    platforms.create(2538, 2100, 'ground');
+    platforms.create(2444, 2744, 'ground');
+    platforms.create(2572, 2744, 'ground');
+    platforms.create(2700, 2744, 'ground');
+    platforms.create(2828, 2744, 'ground');
+    platforms.create(2824, 2488, 'ground');
+    platforms.create(2952, 2488, 'ground');
+    platforms.create(3080, 2488, 'ground');
+    platforms.create(3724, 2744, 'ground');
+    platforms.create(3272, 2296, 'ground');
+    platforms.create(3400, 2296, 'ground');
+    platforms.create(3528, 2296, 'ground');
+    platforms.create(3656, 2296, 'ground');
+    platforms.create(3784, 2296, 'ground');
+    platforms.create(3912, 2296, 'ground');
+    platforms.create(4040, 2296, 'ground');
+    platforms.create(4040, 3768, 'ground');
+    platforms.create(3788, 3512, 'ground');
+    platforms.create(3660, 3512, 'ground');
+    platforms.create(3532, 3512, 'ground');
+    platforms.create(3404, 3512, 'ground');
+    platforms.create(3276, 3512, 'ground');
+    platforms.create(3148, 3512, 'ground');
+    platforms.create(3020, 3512, 'ground');
+    platforms.create(2892, 3512, 'ground');
+    platforms.create(2764, 3512, 'ground');
+    platforms.create(2636, 3512, 'ground');
+    platforms.create(2508, 3512, 'ground');
+    platforms.create(2380, 3512, 'ground');
+    platforms.create(3848, 4088, 'ground');
+    platforms.create(3720, 4088, 'ground');
+    platforms.create(3592, 4088, 'ground');
+    platforms.create(3464, 4088, 'ground');
+    platforms.create(3276, 4088, 'ground');
+    platforms.create(3148, 4088, 'ground');
+    platforms.create(3020, 4088, 'ground');
+    platforms.create(2892, 4088, 'ground');
+    platforms.create(2764, 4088, 'ground');
+    platforms.create(2636, 4088, 'ground');
+    platforms.create(2508, 4088, 'ground');
+    platforms.create(2380, 4088, 'ground');
+    
+
+    // Murs //
+  
+    walls.create(104, 2776, 'wall');
+    walls.create(104, 2904, 'wall');
+    walls.create(424, 2584, 'wall');
+    walls.create(424, 2456, 'wall');
+    walls.create(552, 3096, 'wall');
+    walls.create(812, 3096, 'wall');
+    walls.create(812, 2968, 'wall');
+    walls.create(812, 2840, 'wall');
+    walls.create(812, 2712, 'wall');
+    walls.create(1260, 2712, 'wall');
+    walls.create(1260, 2840, 'wall');
+    walls.create(1836, 2840, 'wall');
+    walls.create(2156, 2648, 'wall');
+    walls.create(2156, 2520, 'wall');
+    walls.create(2156, 2392, 'wall');
+    walls.create(2156, 2264, 'wall');
+    walls.create(2156, 2136, 'wall');
+    walls.create(2156, 2008, 'wall');
+    walls.create(2156, 1880, 'wall');
+    walls.create(2156, 1752, 'wall');
+    walls.create(1768, 2264, 'wall');
+    walls.create(1768, 2136, 'wall');
+    walls.create(1768, 2008, 'wall');
+    walls.create(1768, 1880, 'wall');
+    walls.create(1768, 1752, 'wall');
+    walls.create(1768, 1624, 'wall');
+    walls.create(1768, 1496, 'wall');
+    walls.create(2728, 1496, 'wall');
+    walls.create(2728, 1624, 'wall');
+    walls.create(2728, 1752, 'wall');
+    walls.create(2728, 1880, 'wall');
+    walls.create(2728, 2008, 'wall');
+    walls.create(2728, 2136, 'wall');
+    walls.create(2728, 2264, 'wall');
+    walls.create(2728, 2392, 'wall');
+    walls.create(2348, 1752, 'wall');
+    walls.create(2348, 1880, 'wall');
+    walls.create(2348, 2008, 'wall');
+    walls.create(2348, 2136, 'wall');
+    walls.create(2348, 2264, 'wall');
+    walls.create(2348, 2392, 'wall');
+    walls.create(2348, 2520, 'wall');
+    walls.create(2348, 2648, 'wall');
+    walls.create(3176, 2392, 'wall');
+    walls.create(4136, 2392, 'wall');
+    walls.create(4136, 2520, 'wall');
+    walls.create(4136, 2648, 'wall');
+    walls.create(4136, 2776, 'wall');
+    walls.create(4136, 2904, 'wall');
+    walls.create(4136, 3032, 'wall');
+    walls.create(4136, 3160, 'wall');
+    walls.create(4136, 3288, 'wall');
+    walls.create(4136, 3416, 'wall');
+    walls.create(4136, 3544, 'wall');
+    walls.create(4136, 3672, 'wall');
+    walls.create(3884, 2776, 'wall');
+    walls.create(3884, 2904, 'wall');
+    walls.create(3884, 3032, 'wall');
+    walls.create(3884, 3160, 'wall');
+    walls.create(3884, 3288, 'wall');
+    walls.create(3884, 3416, 'wall');
+    walls.create(3944, 3864, 'wall');
+    walls.create(3944, 3992, 'wall');
+    walls.create(3304, 3992, 'wall');
+    walls.create(3368, 3992, 'wall');
+    walls.create(3304, 3864, 'wall');
+    walls.create(3368, 3864, 'wall');
+    walls.create(2284, 3608, 'wall');
+    walls.create(2284, 3736, 'wall');
+    walls.create(2284, 3864, 'wall');
+    walls.create(2284, 3992, 'wall');
+   
+    // Pics //
+    
+    pics.create(648, 3132, 'pics').setOffset(0,25);
+    pics.create(716, 3132, 'pics').setOffset(0,25);
+    pics.create(1356, 2872, 'pics').setOffset(0,25);
+    pics.create(1612, 2872, 'pics').setOffset(0,25);
+    pics.create(1740, 2872, 'pics').setOffset(0,25);
+    pics.create(2092, 2264, 'picsHG').setOffset(25,0);
+    pics.create(2092, 1752, 'picsHG').setOffset(25,0);
+    pics.create(1832, 2008, 'picsHD').setOffset(-25,0);
+    pics.create(2664, 1752, 'picsHG').setOffset(25,0);
+    pics.create(2412, 1752, 'picsHD').setOffset(-25,0);
+    pics.create(2538, 2300, 'pics').setOffset(0,25);
+    pics.create(2538, 2364, 'picsB').setOffset(0,-25);
+    pics.create(3724, 2680, 'pics').setOffset(0,25);
+    pics.create(3240, 3864, 'picsHG').setOffset(0,25);
+    pics.create(3240, 3992, 'picsHG').setOffset(0,25); 
+    pics.create(3432, 3864, 'picsHD').setOffset(0,25);
+    pics.create(3432, 3992, 'picsHD').setOffset(0,25);
+
+    // Neige //
+    
+    neige.create(2956, 2744, 'SolNeige')
+    neige.create(3084, 2744, 'SolNeige')
+    neige.create(3212, 2744, 'SolNeige')
+    
+    // Glace //
+
+    glace.create(3340, 2744, 'glace')
+    glace.create(3468, 2744, 'glace')
+    glace.create(3596, 2744, 'glace')
+
+    // Coins //
+    
+    platforms.create(104, 3000, 'BasGauche');
+    platforms.create(104, 2680, 'HautGauche');
+    platforms.create(424, 2680, 'BasDroit');
+    platforms.create(552, 3000, 'HautDroit');
+    platforms.create(552, 3192, 'BasGauche');
+    platforms.create(812, 3192, 'BasDroit');
+    platforms.create(812, 2616, 'HautGauche');
+    platforms.create(424, 2360, 'HautGauche');
+    platforms.create(1260, 2616, 'HautDroit');
+    platforms.create(1260, 2936, 'BasGauche');
+    platforms.create(1452, 2936, 'BasDroit');
+    platforms.create(1516, 2936, 'BasGauche');
+    platforms.create(1452, 2872, 'HautGauche');
+    platforms.create(1516, 2872, 'HautDroit');
+    platforms.create(1836, 2936, 'BasDroit');
+    platforms.create(1836, 2744, 'HautGauche');
+    platforms.create(2156, 2744, 'BasDroit');
+    platforms.create(1768, 2360, 'BasDroit');
+    platforms.create(1768, 1400, 'HautGauche');
+    platforms.create(2156, 1656, 'HautGauche');
+    platforms.create(2348, 1656, 'HautDroit');
+    platforms.create(2728, 1400, 'HautDroit');
+    platforms.create(2348, 2744, 'BasGauche');
+    platforms.create(2728, 2488, 'BasGauche');
+    platforms.create(3176, 2488, 'BasDroit');
+    platforms.create(3820, 2744, 'BasDroit');
+    platforms.create(3176, 2296, 'HautGauche');
+    platforms.create(3820, 2680, 'HautGauche');
+    platforms.create(4136, 2296, 'HautDroit');
+    platforms.create(3884, 2680, 'HautDroit');
+    platforms.create(4136, 3768, 'BasDroit');
+    platforms.create(3884, 3512, 'BasDroit');
+    platforms.create(3944, 3768, 'HautGauche');
+    platforms.create(3944, 4088, 'BasDroit');
+    platforms.create(3368, 4088, 'BasGauche');
+    platforms.create(3368, 3768, 'HautDroit');
+    platforms.create(3304, 3768, 'HautGauche');
+    platforms.create(3304, 4088, 'BasDroit');
+    platforms.create(2284, 4088, 'BasGauche');
+    platforms.create(2284, 3512, 'HautGauche');
+
+    // On pose les assets de victoire et défaite//
+    
+    victoire = this.add.image(960,300,'Victoire').setScrollFactor(0).setAlpha(0);
+    defaite = this.add.image(960,300,'Defaite').setScrollFactor(0).setAlpha(0);
+    
+    // Création du power-up (C'est un Jet pack invisible), auquel je n'ai pas affecté de gravité//
+    
+    powerUp = this.physics.add.sprite(3600, 4000, 'powerup');
+    powerUp.body.setAllowGravity(false);
+    
+    // Assets des points de vie (tete du personnage) et des tetes de morts remplaçant les points de vies //
+    
+    imPDV1 = this.add.sprite(100,100, 'Tetevie').setScrollFactor(0).setAlpha(1);
+    imPDV2 = this.add.sprite(200,100, 'Tetevie').setScrollFactor(0).setAlpha(1);
+    imPDV3 = this.add.sprite(300,100, 'Tetevie').setScrollFactor(0).setAlpha(1);
+    imPDM1 = this.add.sprite(100,100, 'Tetemort').setScrollFactor(0).setAlpha(0);
+    imPDM2 = this.add.sprite(200,100, 'Tetemort').setScrollFactor(0).setAlpha(0);
+    imPDM3 = this.add.sprite(300,100, 'Tetemort').setScrollFactor(0).setAlpha(0);
+    
+    // Assets de la barre de carburant du jet pack //
+    
+    carbu1 = this.add.sprite(1611,751, 'carbu').setScrollFactor(0).setAlpha(0); 
+    carbu2 = this.add.sprite(1531,751, 'carbu').setScrollFactor(0).setAlpha(0);
+    carbu3 = this.add.sprite(1451,751, 'carbu').setScrollFactor(0).setAlpha(0);
+    carbu4 = this.add.sprite(1371,751, 'carbu').setScrollFactor(0).setAlpha(0);
+    carbu5 = this.add.sprite(1291,751, 'carbu').setScrollFactor(0).setAlpha(0);
+    barreVie = this.add.image(1450,750, 'barreVie').setScrollFactor(0).setAlpha(0); // devrait s'appeller "barreCarbu" normalement, mais je ne veut pas casser mon                                                                                      code en modifiant les noms de variables
+    // Particules pour l'effet de neige //
+    
+    particule = this.add.particles('neige');
+    
+    
+    emmeteur = particule.createEmitter({
+        x:800,
+        y:1000,
+        speed:100,
+        frequency:50,
+        lifespan: 20000,
+        scale: {start : 0.5, end : 0.2},
+ 
+    });
+    
+    emmeteur2 = particule.createEmitter({
+        x:1600,
+        y:1000,
+        speed:100,
+        frequency:50,
+        lifespan: 20000,
+        scale: {start : 0.5, end : 0.2},
+        
+    });
+    
+    emmeteur3 = particule.createEmitter({
+        x:2400,
+        y:1000,
+        speed:100,
+        frequency:50,
+        lifespan: 20000,
+        scale: {start : 0.5, end : 0.2},
+ 
+    });
+    
+    emmeteur4 = particule.createEmitter({
+        x:3200,
+        y:1000,
+        speed:100,
+        frequency:50,
+        lifespan: 20000,
+        scale: {start : 0.5, end : 0.2},
+        
+    });
+
+// Sprite du joueur //
+    
+    player = this.physics.add.sprite(300, 2900  , 'dude'); // Position pour faire apparaîre le joueur à l'endroit voulu : (*DEPART* x:300,y:2900)(*Zone                                                                         A* x:1038,y:2514) (*ZoneB* x:2252,y:1555) (*Glace et neige* x:3015,y:2600) (*PowerUp* x:4040,y:3650)  /                                                           (*Ennemi* x:2950,y:3990)
+    // La caméra suit le joueur, a placer après le joueur sinon elle ne fonctionne pas //
+    this.cameras.main.startFollow(player, true);
+  
+    
+    // Description des colliders et des fonction qui doivent êtres appelées si collision il y a.
+    player.setCollideWorldBounds(true);
+    this.physics.add.collider(player, platforms, NotHit, null, this);
+    this.physics.add.collider(player, pics, HitPics, null, this);
+    this.physics.add.collider(player, walls);
+    this.physics.add.collider(player, glace, Hitglace, null, this);
+    this.physics.add.collider(player, neige, HitNeige, null, this);
+    this.physics.add.collider(player, powerUp, HitPowerUp, null, this);
+    
+
+    // SpriteSheet Ennemi, la gravité ne lui est pas appliquée. //
+    ennemi = this.physics.add.sprite(2590 , 3990, 'ennemi');
+    ennemi.setCollideWorldBounds(true);
+    ennemi.body.setAllowGravity(false);
+    
+    // Création du twins (asset ennemi utilisé par le twins) //
+    this.tweens.add({
+            targets: ennemi,
+                props: {
+                x: { value: 2500, duration: 300 },
+            },
+            yoyo: true,
+                repeat: -1
+        });
+    
+    // Collider entre le joueur et l'ennemi à écrire en dessous du spritesheet ennemi sinon ne fonctionne pas //
+    this.physics.add.collider(player, ennemi, HitEnnemi, null, this);
+    
+   
+    // Créatiion des animations du personnage et de l'ennemi //
+    this.anims.create({
+        key: 'left',
+        frames: this.anims.generateFrameNumbers('dude', { start: 1, end: 2 }),
+        frameRate: 7,
+        repeat: -1
+    });
+
+    this.anims.create({
+        key: 'turn',
+        frames: [ { key: 'dude', frame: 4 } ],
+        frameRate: 20
+    });
+
+    this.anims.create({
+        key: 'right',
+        frames: this.anims.generateFrameNumbers('dude', { start: 7, end: 8 }),
+        frameRate: 7,
+        repeat: -1
+     });
+    
+     this.anims.create({
+        key: 'jump',
+        frames: [ { key: 'dude', frame: 5 } ],
+        frameRate: 20
+       
+    });
+        
+    this.anims.create({
+        key: 'jumpright',
+        frames: [ { key: 'dude', frame: 6 } ],
+        frameRate: 20,
+        repeat : -1
+    });
+    
+    this.anims.create({
+        key: 'jumpleft',
+        frames: [ { key: 'dude', frame: 3 } ],
+        frameRate: 20,
+        repeat : -1
+    });
+    
+    // Les animations jumpwallleft et jumpwallright sont beuggués, mais cela donne un charme au personnage, on a l'impression qu'il remonte les mur en leur courrant très très vite dessus //
+    this.anims.create({
+        key: 'jumpwallleft',
+        frames: [ { key: 'dude', frame: 0 } ],
+        frameRate: 20,
+    });
+    
+    this.anims.create({
+        key: 'jumpwallright',
+        frames: [ { key: 'dude', frame: 9 } ],
+        frameRate: 20,
+    });
+    
+    // Animation de l'ennemi (quasi synchronisée avec le mouvement du twin, avec beaucoup de patience et de souffrance)
+    this.anims.create({
+        key: 'anim',
+        frames: this.anims.generateFrameNumbers('ennemi', { start: 0, end: 5 }),
+        frameRate: 10,
+        repeat: -1
+     });
+    
+    
+
+    // Je n'ai "pas eu le temps" de réaliser les contrôles à la manette, les seules touches utilisées dans ce jeu ici sont les touches HAUT GAUCHE et DROITE.
+    // Sert à utiliser les (cursors.up/cursors.left/cursors.right).(isUp/isDown) etc. //
+   
+    cursors = this.input.keyboard.createCursorKeys();
+
+    
+    
+    
+}
+
+function update (){
+    
+    
+    
+    if (gameOver)
+    {
+        player.setTint(0xff0000);
+        return;
+    }
+    
+    // Reset le saut pour ne pas pouvoir faire de saut infini (capacité "Jet Pack")
+    if (player.body.touching.down){ 
+        canJump = true;
+        ennemi.anims.play('anim', true);
+
+    }
+    
+    // Utilisation du carburant lors du vol en JetPack //
+    if (carburant > 0 && !player.body.touching.down && cursors.up.isDown){
+            canJump = true;
+            carburant -= 1;
+        }
+    
+    if (cursors.right.isDown){
+        
+        // Vous pouvez grimper un muur en utilisant les flèche HAUT/DROITE ou HAUT/GAUCHE
+        if (player.body.blocked.right && cursors.right.isDown && cursors.up.isDown){
+            player.anims.play('jumpwallright', true);
+            canJump = true;
+        
+        }
+        
+        // Le personnage est ralentit s'il marche sur la neige //
+        else if (player.body.touching.down){
+            if (hitneige == true){
+                player.setVelocityX(100);
+                player.anims.play('right', true);
+            }
+            
+            // Le personnage a un effet d'innertie s'il marche sur la glace //
+            
+            else if (hitglace == true){
+                player.setAccelerationX(50)
+                player.anims.play('right', true);
+            }
+            
+            // Déplacement
+            
+            else{
+            player.setAccelerationX(0)
+            player.setVelocityX(400);
+            player.anims.play('right', true);
+            } 
+        }
+        // Animation et déplacement dans les airs //
+        else {
+            player.setAccelerationX(0);
+            player.anims.play('jumpright', true);
+            player.setVelocityX(400);
+    
+        }
+        
+    
+}
+    
+
+    // IDEM que curseur droite //
+    else if (cursors.left.isDown){
+        
+        
+
+        if (player.body.blocked.left && cursors.left.isDown && cursors.up.isDown){
+            player.anims.play('jumpwallleft', true);
+            canJump = true;
+        }
+         
+        else if (player.body.touching.down){
+            
+            if (hitneige == true){
+                player.setVelocityX(-100);
+                player.anims.play('left', true); 
+            }
+            else if (hitglace == true){
+                player.setAccelerationX(-50);
+                player.anims.play('left', true); 
+            }
+            else {
+                player.setAccelerationX(0);
+                player.setVelocityX(-400);
+                player.anims.play('left', true);
+            }
+        }   
+    
+        else {
+            player.setAccelerationX(0);
+            player.anims.play('jumpleft', true);
+            player.setVelocityX(-400);
+           
+        }
+    
+    }
+    
+
+    
+    else{
+        if (!player.body.touching.down){
+            player.anims.play('jump')
+            player.setVelocityX(0);
+        }
+        else{
+        player.setVelocityX(0);
+        player.anims.play('turn');
+        }
+    }
+   
+    // Saut & Jetpack //
+    if (cursors.up.isDown && canJump == true)
+    {
+        player.setVelocityY(-330);
+        canJump = false;
+    
+    }
+    // Frames d'invincibilité //
+    if(invincible == true){
+            compteur-- ;
+            if(compteur == 0){
+                compteur = 150;
+                invincible = false ;
+            }
+        }
+
+    if(invincibleEnnemi == true){ 
+            compteurEnnemi-- ;
+            if(compteurEnnemi == 0){
+                compteurEnnemi = 150;
+                invincibleEnnemi = false ;
+            }
+        }
+  
+    // "animation" barre carbirant //
+    
+    if(carburant < 80){
+        carbu1.destroy();   
+    }
+    if(carburant < 60){
+        carbu2.destroy();
+    }
+    if(carburant < 40){
+        carbu3.destroy();
+    }
+    if(carburant < 20){
+        carbu4.destroy();
+    }
+    if(carburant <= 0){
+        carbu5.destroy();
+        barreVie.destroy();
+    }
+
+    
+}
+    // // fonction Collision entre le joueur et les plateformes , enlève les effets de neige et de glace //
+    function NotHit(player, platforms){
+    hitneige = false;
+    hitglace = false;
+    }
+    
+// fonction Collision entre le joueur et la neige //    
+function HitNeige (player, neige){
+        hitneige = true;
+        hitglace = false;
+     
+    }
+    
+// fonction Collision entre le joueur et la glace //
+function Hitglace (player, glace){
+        hitglace = true;
+        hitneige = false;
+     
+    }
+
+// fonction Collision entre le joueur et les pics //    
+function HitPics (player, pDV){
+    defaite.setAlpha(1);
+       gameOver = true;
+      
+   } 
+
+// Collision entre le joueur et le powerup, affiche la barre de carburant et initialise le carburant à 100 //
+function HitPowerUp(player, powerup){
+    powerUp.destroy();
+    barreVie.setAlpha(1);
+    carbu1.setAlpha(1);
+    carbu2.setAlpha(1);
+    carbu3.setAlpha(1);
+    carbu4.setAlpha(1);
+    carbu5.setAlpha(1);
+    carburant = 100
+   
+    }
+// Collision entre le joueur et l'ennemi, fait perdre un pv au joueur et un à l'ennemi, déclenche une frame d'invincibilité, lance le Gameover si les points de vie du joueur tombent à 0, ce qui n'est réalisable qu'avec les plateformes, l'ennemi ne pouvant tanker que 2 coup avant de mourir. //
+function HitEnnemi(player, ennemi){
+     if(invincible == false){
+            invincible = true ;
+         
+    pDV -=1;
+    pDVennemi -=1;
+    if (pDVennemi <= 0){
+        ennemi.destroy()
+        victoire.setAlpha(1);
+    }
+    if (pDV == 2){
+        imPDV3.destroy();
+        imPDM3.setAlpha(1);
+    } 
+        if (pDV == 1){
+        imPDV2.destroy();
+        imPDM2.setAlpha(1);
+    }
+        if (pDV <= 0){
+        imPDV1.destroy();
+        imPDM1.setAlpha(1);
+        defaite.setAlpha(1);
+        gameOver = true;
+    }
+    
+    
+}
+}
+</script>
+
+</body>
+</html>
