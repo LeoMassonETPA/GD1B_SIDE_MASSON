@@ -35,7 +35,10 @@ F5 si Game Over
 L'ennemi possède 2PVs
 N'hésitez pas a utiliser les coordonées en commentaire de la ligne 476 pour faire apparaitre le personnage à différents endroits.
 
-Il est préférable de jouer avec la fenetre du navigateur en plein ecran, mais pas en plein ecran F11
+
+
+/!\ Pensez à dézoomer de 10% pour que l'assets de la barre de carburant s'affiche bien et pour que le jeu soit moins difficile /!\
+
 
 J'espère que vous apprécirez ce jeu ! */
     
@@ -476,7 +479,7 @@ function create ()
 
 // Sprite du joueur //
     
-    player = this.physics.add.sprite(4040, 3650  , 'dude'); // Position pour faire apparaîre le joueur à l'endroit voulu : (*DEPART* x:300,y:2900)(*Zone                                                                         A* x:1038,y:2514) (*ZoneB* x:2252,y:1555) (*Glace et neige* x:3015,y:2600) (*PowerUp* x:4040,y:3650)  /                                                           (*Ennemi* x:2950,y:3990)
+    player = this.physics.add.sprite(300, 2900  , 'dude'); // Position pour faire apparaîre le joueur à l'endroit voulu : (*DEPART* x:300,y:2900)(*Zone                                                                         A* x:1038,y:2514) (*ZoneB* x:2252,y:1555) (*Glace et neige* x:3015,y:2600) (*PowerUp* x:4040,y:3650)  /                                                           (*Ennemi* x:2950,y:3990)
     // La caméra suit le joueur, a placer après le joueur sinon elle ne fonctionne pas //
     this.cameras.main.startFollow(player, true);
   
@@ -768,8 +771,25 @@ function Hitglace (player, glace){
 // fonction Collision entre le joueur et les pics //    
 function HitPics (player, pDV){
     defaite.setAlpha(1);
-       gameOver = true;
-      
+    pDV = 2
+    if (pDV == 2){
+        imPDV3.destroy();
+        imPDM3.setAlpha(1);
+    } 
+        pDV = 1;
+        if (pDV == 1){
+        imPDV2.destroy();
+        imPDM2.setAlpha(1);
+    }
+        pDV = 0;
+        if (pDV <= 0){
+        imPDV1.destroy();
+        imPDM1.setAlpha(1);
+        defaite.setAlpha(1);
+        gameOver = true;
+        
+        }
+   
    } 
 
 // Collision entre le joueur et le powerup, affiche la barre de carburant et initialise le carburant à 100 //
@@ -784,7 +804,8 @@ function HitPowerUp(player, powerup){
     carburant = 100
    
     }
-// Collision entre le joueur et l'ennemi, fait perdre un pv au joueur et un à l'ennemi, déclenche une frame d'invincibilité, lance le Gameover si les points de vie du joueur tombent à 0, ce qui n'est réalisable qu'avec les plateformes, l'ennemi ne pouvant tanker que 2 coup avant de mourir. //
+// Collision entre le joueur et l'ennemi, fait perdre un pv au joueur et un à l'ennemi, déclenche une frame d'invincibilité)
+// Bug si le joueur arrive a sauter sur la tete de l'ennemi sans avoir perdu de vie avant, pousse l'ennemi dans le vide
 function HitEnnemi(player, ennemi){
      if(invincible == false){
             invincible = true ;
